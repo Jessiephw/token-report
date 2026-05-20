@@ -854,7 +854,7 @@ function renderMonthly() {
   const subUSD = state.subUSD;
 
   const rows = state.totals.map(r => {
-    const ratio = subUSD / (r.cost_usd || 1);
+    const ratio = r.value_ratio !== undefined && r.value_ratio !== '' ? r.value_ratio : (r.cost_usd || 0) / subUSD;
     const rc = ratioClass(ratio);
     return `<tr>
       <td class="td-mono">${r.month}</td>
@@ -862,7 +862,7 @@ function renderMonthly() {
       <td class="td-mono">${(r.sessions||0).toLocaleString()}</td>
       <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
       <td class="td-mono" style="color:var(--text2)">${fmtK(r.output_tokens||0)}</td>
-      <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+      <td class="td-mono">${fmtMin(r.active_min || (r.active_hours||0)*60)}</td>
       <td><span class="ratio-badge ${rc}">${ratio.toFixed(2)}×</span></td>
     </tr>`;
   }).join('');
@@ -902,7 +902,7 @@ function renderProjects() {
       <td class="td-mono">${r.sessions||0}</td>
       <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
       <td class="td-mono" style="color:var(--text2)">${fmtK(r.output_tokens||0)}</td>
-      <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+      <td class="td-mono">${fmtMin(r.active_min || (r.active_hours||0)*60)}</td>
     </tr>`;
   }).join('');
 
@@ -946,7 +946,7 @@ function renderSessions() {
     <td class="td-mono" style="color:var(--accent)">${fmt$(r.cost_usd)}</td>
     <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
     <td class="td-mono">${fmtK(r.output_tokens||0)}</td>
-    <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+    <td class="td-mono">${fmtMin(r.active_min || (r.active_hours||0)*60)}</td>
     <td class="td-mono">${r.messages||'-'}</td>
   </tr>`).join('');
 
