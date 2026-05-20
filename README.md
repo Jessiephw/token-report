@@ -16,12 +16,18 @@
 
 ## 快速開始
 
-### 1. clone
+### 1. 下載
 
 ```bash
 git clone https://github.com/Jessiephw/token-report.git ~/token-report
 cd ~/token-report
 ```
+
+**不熟 git？** 從網頁版下載 ZIP 也可以：
+1. 打開 https://github.com/Jessiephw/token-report
+2. 點右上綠色 **Code** 按鈕 → **Download ZIP**
+3. 解壓後把 `token-report-main` 資料夾搬到 Home 並改名為 `token-report`（最終要在 `~/token-report/`）
+4. Terminal 跑 `cd ~/token-report`，後面步驟一致
 
 ### 2. （可選）設定你的 workspace 路徑
 
