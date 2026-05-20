@@ -52,7 +52,7 @@ python3 scripts/extract.py
 ### 4. 打開 Dashboard 看視覺化
 
 ```bash
-open dashboard.html
+open ~/token-report/dashboard.html
 ```
 
 把 `data/*.csv` 拖進左側上傳區，即可看到：
