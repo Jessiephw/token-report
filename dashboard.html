@@ -693,7 +693,10 @@ function renderOverview() {
   const totalInput = allData.reduce((s, r) => s + (r.input_tokens || 0), 0);
   const totalOutput = allData.reduce((s, r) => s + (r.output_tokens || 0), 0);
   const totalSessions = allData.reduce((s, r) => s + (r.sessions || 0), 0) || state.sessions.length;
-  const avgRatio = allData.length > 0 ? (allData.reduce((s, r) => s + (state.subUSD / (r.cost_usd || 1)), 0) / allData.length) : 0;
+  const avgRatio = allData.length > 0 ? (allData.reduce((s, r) => {
+    const v = (r.value_ratio !== undefined && r.value_ratio !== '') ? r.value_ratio : (r.cost_usd || 0) / state.subUSD;
+    return s + v;
+  }, 0) / allData.length) : 0;
 
   // latest month change
   let change = '';
@@ -724,7 +727,7 @@ function renderOverview() {
     <div class="metric-card">
       <div class="metric-label">Avg Value Ratio</div>
       <div class="metric-value" style="color:${avgRatio >= 1.5 ? 'var(--green)' : avgRatio >= 1 ? 'var(--accent)' : 'var(--red)'}">${avgRatio.toFixed(2)}×</div>
-      <div class="metric-change">sub $${state.subUSD}/mo ÷ actual cost</div>
+      <div class="metric-change">actual cost ÷ sub $${state.subUSD}/mo</div>
     </div>
   `;
 
