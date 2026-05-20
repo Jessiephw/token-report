@@ -99,6 +99,14 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.token-report.pl
 
 （USD per million tokens；對齊 LiteLLM 公開定價，與 ccusage 約 3-4% 誤差）
 
+**未來新模型怎麼加？** Anthropic 之後出新模型（例如 Opus 5）的話，打開 `scripts/extract.py`，找到最上方的 `PRICING` 表，照著現有格式多加一行：
+
+```python
+"claude-opus-5": {"input": 5.0, "output": 25.0, "cache_read": 0.50, "cache_creation": 6.25},
+```
+
+4 個價格從 Anthropic 官方定價頁拿。沒加新模型的話，掃到那筆 cost 會算成 $0。
+
 ---
 
 ## License
