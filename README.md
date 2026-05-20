@@ -51,11 +51,14 @@ python3 scripts/extract.py
 
 ### 4. 打開 Dashboard 看視覺化
 
+跑這兩個指令 — 一個開瀏覽器 dashboard、一個開 Finder 資料夾：
+
 ```bash
-open ~/token-report/dashboard.html
+open ~/token-report/dashboard.html   # 瀏覽器打開 dashboard
+open ~/token-report/data/            # Finder 打開資料夾，看到 3 個 csv
 ```
 
-把 `data/*.csv` 拖進左側上傳區，即可看到：
+從 Finder 把 **data 資料夾內 3 個 .csv**（monthly.csv / monthly-totals.csv / sessions.csv）直接**拖到 dashboard 視窗左側的「上傳區」**（虛線框），圖表就會跑出來：
 
 - 月花費折線圖 vs 訂閱費
 - 各專案佔比圓餅圖
