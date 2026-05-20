@@ -1,0 +1,90 @@
+# token-report
+
+> 每天追蹤你的 Claude AI 花費 — 用了多少 token、各專案分布、訂閱划不划算。
+> Built for solo workers who want to know where every dollar of AI cost goes.
+
+掃描 `~/.claude/projects/` 下所有 Claude Code 對話 log，統計每月、每專案的：
+- USD 花費（對齊 LiteLLM / ccusage 公開定價）
+- Token 使用量（input / output / cache）
+- 活躍時間（訊息間隔 ≤ 5 分鐘的累計）
+- Wall-clock 時間（session 第一則到最後一則訊息）
+- Session 數、模型分佈
+
+支援模型：Claude Opus 4.7 / Sonnet 4.6 / Haiku 4.5（要加新模型改 `PRICING` dict）。
+
+---
+
+## 快速開始
+
+### 1. clone
+
+```bash
+git clone https://github.com/Jessiephw/token-report.git ~/token-report
+cd ~/token-report
+```
+
+### 2. （可選）設定你的 workspace 路徑
+
+如果你有把 Claude Code 對話用「workspace + 子專案資料夾」結構管理（例如 `~/Desktop/my-workspace/projects/20260101_xxx/`），可以設環境變數讓 token-report 自動把 session 歸類到子專案：
+
+```bash
+export WORKSPACE_ROOT="$HOME/Desktop/my-workspace"
+export SUBPROJECTS_ROOT="$WORKSPACE_ROOT/projects"
+export CLAUDE_SUB_USD="100"   # 你的月訂閱費 USD（預設 100）
+```
+
+沒設這些變數也能跑 — 只是不會做子專案細分歸類，每個 session 用 cwd 當專案名。
+
+### 3. 跑掃描
+
+```bash
+python3 scripts/extract.py
+```
+
+產出 3 個檔案在 `data/`：
+
+| 檔案 | 看什麼 |
+|---|---|
+| `monthly.csv` | 每月 × 每專案花費明細 |
+| `monthly-totals.csv` | 每月總計 + value ratio |
+| `sessions.csv` | 每場對話一列（最細） |
+
+---
+
+## 自動排程（macOS launchd）
+
+範本 plist 在 `examples/com.user.token-report.plist`。
+
+複製到 `~/Library/LaunchAgents/` 後**改兩個 `<絕對路徑>`**（用 `pwd` 在 token-report 目錄拿到完整路徑）：
+
+```bash
+cd ~/token-report
+pwd
+# 例如輸出：/Users/yourname/token-report
+```
+
+把 plist 內的 `<絕對路徑>` 替換成 `pwd` 輸出的字串，再：
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.token-report.plist
+```
+
+每月 1 號 09:00 會自動跑掃描。
+
+---
+
+## 定價
+
+| 模型 | Input | Output | Cache read | Cache creation |
+|---|---|---|---|---|
+| Opus 4.7 | $5 | $25 | $0.50 | $6.25 |
+| Sonnet 4.6 | $3 | $15 | $0.30 | $3.75 |
+| Haiku 4.5 | $1 | $5 | $0.10 | $1.25 |
+
+（USD per million tokens；對齊 LiteLLM 公開定價，與 ccusage 約 3-4% 誤差）
+
+---
+
+## License
+
+MIT
