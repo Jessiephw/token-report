@@ -49,6 +49,22 @@ python3 scripts/extract.py
 | `monthly-totals.csv` | 每月總計 + value ratio |
 | `sessions.csv` | 每場對話一列（最細） |
 
+### 4. 打開 Dashboard 看視覺化
+
+```bash
+open dashboard.html
+```
+
+把 `data/*.csv` 拖進左側上傳區，即可看到：
+
+- 月花費折線圖 vs 訂閱費
+- 各專案佔比圓餅圖
+- Token 類型分佈（Input / Output / Cache）
+- 每月 value ratio（API 等價 ÷ 訂閱費）
+- 所有 session 明細可過濾
+
+書卷暖色系設計，可直接在瀏覽器看／截圖分享。
+
 ---
 
 ## 自動排程（macOS launchd）

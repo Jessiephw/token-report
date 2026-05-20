@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Report — Claude Cost Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F8F4ED;
+    --surface: #FFFFFF;
+    --surface2: #F5E9D4;
+    --border: #EAE0CC;
+    --border2: #D6CBB7;
+    --text: #2A1F14;
+    --text2: #5C4A3C;
+    --text3: #8B7355;
+    --accent: #C84B0A;
+    --accent2: #E0937A;
+    --green: #6B8E4E;
+    --blue: #5C7A8E;
+    --purple: #8B6F8E;
+    --red: #B84A4A;
+    --mono: 'DM Mono', 'Noto Sans Mono', monospace;
+    --sans: 'Noto Sans TC', 'DM Sans', system-ui, sans-serif;
+    --serif: 'Noto Serif TC', serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ── layout ── */
+  .layout { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 28px 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .main { padding: 32px 36px; overflow-x: hidden; }
+
+  /* ── sidebar ── */
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  .nav-section { display: flex; flex-direction: column; gap: 2px; }
+  .nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-left: 8px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 13px;
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+  }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(200,75,10,0.10); color: var(--accent); }
+  .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+  /* ── upload zone ── */
+  .upload-zone {
+    border: 1.5px dashed var(--border2);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface2);
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(200,75,10,0.06); }
+  .upload-zone input { display: none; }
+  .upload-title { font-size: 12px; font-weight: 500; margin-bottom: 4px; }
+  .upload-sub { font-size: 11px; color: var(--text3); }
+  .upload-files { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .upload-file-item {
+    font-size: 11px;
+    color: var(--green);
+    font-family: var(--mono);
+    background: rgba(107,142,78,0.10);
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── header ── */
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 2px; }
+  .header-actions { display: flex; gap: 8px; }
+  .btn {
+    padding: 7px 14px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text2);
+    font-family: var(--sans);
+  }
+  .btn:hover { color: var(--text); border-color: var(--text3); }
+  .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+  .btn.primary:hover { background: var(--accent2); }
+
+  /* ── metric cards ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.2s;
+  }
+  .metric-card:hover { border-color: var(--border2); }
+  .metric-label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px; }
+  .metric-value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; font-family: var(--mono); }
+  .metric-change { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* ── chart grid ── */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .chart-card.wide { grid-column: span 2; }
+  .chart-title {
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .chart-sub { font-size: 11px; color: var(--text3); margin-bottom: 16px; }
+  .chart-wrap { position: relative; }
+
+  /* ── table ── */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+  .table-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-title { font-size: 13px; font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    padding: 10px 20px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 20px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(42,31,20,0.025); color: var(--text); }
+  .td-mono { font-family: var(--mono); }
+  .td-project { color: var(--text); font-weight: 500; }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: var(--mono);
+    background: rgba(91,155,213,0.12);
+    color: var(--blue);
+  }
+  .bar-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    max-width: 80px;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+  }
+
+  /* ── empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-title { font-size: 16px; color: var(--text2); margin-bottom: 8px; font-weight: 500; }
+  .empty-text { font-size: 13px; line-height: 1.7; max-width: 320px; margin: 0 auto 20px; }
+  .empty-steps { text-align: left; max-width: 280px; margin: 0 auto; }
+  .empty-step {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 12px;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .code-inline {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent2);
+  }
+
+  /* ── view toggle ── */
+  .view-section { display: none; }
+  .view-section.active { display: block; }
+
+  /* ── month filter ── */
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .filter-chip {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text3);
+    transition: all 0.15s;
+    font-family: var(--mono);
+  }
+  .filter-chip:hover { color: var(--text); border-color: var(--text3); }
+  .filter-chip.active { background: rgba(200,75,10,0.15); color: var(--accent); border-color: var(--accent); }
+
+  /* ── value ratio indicator ── */
+  .ratio-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+  .ratio-good { background: rgba(107,142,78,0.14); color: var(--green); }
+  .ratio-ok { background: rgba(200,75,10,0.10); color: var(--accent); }
+  .ratio-bad { background: rgba(184,74,74,0.14); color: var(--red); }
+
+  /* ── responsive ── */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; padding: 16px; }
+    .main { padding: 20px 16px; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .chart-card.wide { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div>
+      <div class="logo">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">token-report</div>
+          <div class="logo-sub">claude cost tracker</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Views</div>
+      <button class="nav-item active" onclick="showView('overview')">
+        <span class="nav-icon">◈</span> Overview
+      </button>
+      <button class="nav-item" onclick="showView('monthly')">
+        <span class="nav-icon">◷</span> Monthly
+      </button>
+      <button class="nav-item" onclick="showView('projects')">
+        <span class="nav-icon">◧</span> Projects
+      </button>
+      <button class="nav-item" onclick="showView('sessions')">
+        <span class="nav-icon">◱</span> Sessions
+      </button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Load Data</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()"
+           ondragover="e=>e.preventDefault()" ondrop="handleDrop(event)">
+        <input type="file" id="fileInput" accept=".csv" multiple onchange="handleFiles(this.files)">
+        <div class="upload-title">📂 Upload CSV</div>
+        <div class="upload-sub">monthly.csv<br>monthly-totals.csv<br>sessions.csv</div>
+        <div class="upload-files" id="uploadedList"></div>
+      </div>
+    </div>
+
+    <div class="nav-section" style="margin-top: auto;">
+      <div class="nav-label">Config</div>
+      <div style="padding: 0 8px;">
+        <div style="font-size: 11px; color: var(--text3); margin-bottom: 6px;">訂閱費 / 月</div>
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 11px; color: var(--text3);">$</span>
+          <input id="subCost" type="number" value="100" min="0" step="1"
+            style="width: 70px; background: var(--surface2); border: 1px solid var(--border2); color: var(--text); padding: 5px 8px; border-radius: 6px; font-size: 12px; font-family: var(--mono);"
+            onchange="recalcRatios()">
+          <span style="font-size: 11px; color: var(--text3);">USD</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main class="main">
+    <!-- OVERVIEW -->
+    <section class="view-section active" id="view-overview">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Overview</div>
+          <div class="page-sub">Claude Code token usage summary</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn" onclick="loadDemo()">Load demo data</button>
+        </div>
+      </div>
+
+      <div id="overviewContent">
+        <!-- empty state -->
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">⬡</div>
+          <div class="empty-title">No data yet</div>
+          <div class="empty-text">Upload your CSV files from token-report to see your Claude usage breakdown.</div>
+          <div class="empty-steps">
+            <div class="empty-step">
+              <div class="step-num">1</div>
+              <div>Clone: <span class="code-inline">git clone github.com/Jessiephw/token-report</span></div>
+            </div>
+            <div class="empty-step">
+              <div class="step-num">2</div>
+              <div>Run: <span class="code-inline">python3 scripts/extract.py</span></div>
+            </div>
+            <div class="empty-step">
+              <div class="step-num">3</div>
+              <div>Upload <span class="code-inline">data/*.csv</span> ← here</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- loaded content -->
+        <div id="loadedContent" style="display:none">
+          <div class="metric-grid" id="metricGrid"></div>
+          <div class="chart-grid">
+            <div class="chart-card wide">
+              <div class="chart-title">Monthly Cost</div>
+              <div class="chart-sub">USD per month (actual vs subscription)</div>
+              <div class="chart-wrap" style="height:220px"><canvas id="costChart" role="img" aria-label="Monthly cost bar chart"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Cost by Project</div>
+              <div class="chart-sub">All-time distribution</div>
+              <div class="chart-wrap" style="height:200px"><canvas id="projectChart" role="img" aria-label="Project cost pie chart"></canvas></div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-title">Token Mix</div>
+              <div class="chart-sub">Input / Output / Cache</div>
+              <div class="chart-wrap" style="height:200px"><canvas id="tokenChart" role="img" aria-label="Token type doughnut chart"></canvas></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MONTHLY -->
+    <section class="view-section" id="view-monthly">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Monthly</div>
+          <div class="page-sub">月均花費、活躍時間、value ratio</div>
+        </div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">monthly-totals.csv</div>
+        </div>
+        <div id="monthlyTableWrap">
+          <div class="empty-state" style="padding:40px"><div class="empty-text">Upload monthly-totals.csv to see data</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJECTS -->
+    <section class="view-section" id="view-projects">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Projects</div>
+          <div class="page-sub">每專案花費明細</div>
+        </div>
+      </div>
+      <div class="filter-row" id="monthFilter"></div>
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">monthly.csv</div>
+        </div>
+        <div id="projectsTableWrap">
+          <div class="empty-state" style="padding:40px"><div class="empty-text">Upload monthly.csv to see data</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SESSIONS -->
+    <section class="view-section" id="view-sessions">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Sessions</div>
+          <div class="page-sub">每場對話明細（最細粒度）</div>
+        </div>
+      </div>
+      <div class="filter-row" id="sessionFilter"></div>
+      <div class="table-card">
+        <div class="table-header">
+          <div class="table-title">sessions.csv</div>
+          <div style="font-size:11px; color:var(--text3)" id="sessionCount"></div>
+        </div>
+        <div id="sessionsTableWrap">
+          <div class="empty-state" style="padding:40px"><div class="empty-text">Upload sessions.csv to see data</div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+// ── State ──
+let state = {
+  sessions: [],
+  monthly: [],
+  totals: [],
+  subUSD: 100,
+  activeMonth: 'all',
+  charts: {},
+  currentView: 'overview'
+};
+
+// ── CSV parser ──
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  return lines.slice(1).map(line => {
+    const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,))/g) || [];
+    const obj = {};
+    headers.forEach((h, i) => {
+      let v = (cols[i] || '').trim().replace(/^"|"$/g, '');
+      obj[h] = isNaN(v) || v === '' ? v : Number(v);
+    });
+    return obj;
+  });
+}
+
+// ── File handling ──
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const data = parseCSV(e.target.result);
+      const name = file.name.toLowerCase();
+      if (name.includes('sessions')) state.sessions = data;
+      else if (name.includes('monthly-totals') || name.includes('totals')) state.totals = data;
+      else if (name.includes('monthly')) state.monthly = data;
+
+      addUploadedBadge(file.name);
+      refreshAll();
+    };
+    reader.readAsText(file);
+  });
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  handleFiles(e.dataTransfer.files);
+}
+
+// drag styling
+document.getElementById('uploadZone').addEventListener('dragover', e => {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('drag');
+});
+document.getElementById('uploadZone').addEventListener('dragleave', () => {
+  document.getElementById('uploadZone').classList.remove('drag');
+});
+document.getElementById('uploadZone').addEventListener('drop', e => {
+  document.getElementById('uploadZone').classList.remove('drag');
+});
+
+function addUploadedBadge(name) {
+  const list = document.getElementById('uploadedList');
+  // avoid duplicates
+  const existing = Array.from(list.children).map(c => c.textContent);
+  if (!existing.includes(name)) {
+    const el = document.createElement('div');
+    el.className = 'upload-file-item';
+    el.textContent = name;
+    list.appendChild(el);
+  }
+}
+
+// ── Demo data ──
+function loadDemo() {
+  state.totals = [
+    {month:'2025-03',sessions:28,cost_usd:42.18,input_tokens:3200000,output_tokens:820000,active_min:312,sub_usd:100,value_ratio:2.37},
+    {month:'2025-04',sessions:41,cost_usd:68.54,input_tokens:5800000,output_tokens:1340000,active_min:487,sub_usd:100,value_ratio:1.46},
+    {month:'2025-05',sessions:56,cost_usd:89.23,input_tokens:7200000,output_tokens:1890000,active_min:631,sub_usd:100,value_ratio:1.12},
+    {month:'2025-06',sessions:63,cost_usd:112.40,input_tokens:9100000,output_tokens:2240000,active_min:742,sub_usd:100,value_ratio:0.89},
+  ];
+  state.monthly = [
+    {month:'2025-03',project:'token-report',sessions:8,cost_usd:10.21,input_tokens:800000,output_tokens:210000,cache_read:120000,cache_create:80000,active_min:92},
+    {month:'2025-03',project:'portfolio-site',sessions:12,cost_usd:18.43,input_tokens:1400000,output_tokens:380000,cache_read:200000,cache_create:150000,active_min:143},
+    {month:'2025-03',project:'00_workspace-ops',sessions:8,cost_usd:13.54,input_tokens:1000000,output_tokens:230000,cache_read:180000,cache_create:100000,active_min:77},
+    {month:'2025-04',project:'token-report',sessions:10,cost_usd:14.80,input_tokens:1200000,output_tokens:310000,cache_read:180000,cache_create:120000,active_min:118},
+    {month:'2025-04',project:'portfolio-site',sessions:18,cost_usd:30.12,input_tokens:2500000,output_tokens:620000,cache_read:350000,cache_create:220000,active_min:223},
+    {month:'2025-04',project:'api-backend',sessions:13,cost_usd:23.62,input_tokens:2100000,output_tokens:410000,cache_read:290000,cache_create:180000,active_min:146},
+    {month:'2025-05',project:'token-report',sessions:14,cost_usd:18.90,input_tokens:1600000,output_tokens:420000,cache_read:240000,cache_create:160000,active_min:152},
+    {month:'2025-05',project:'portfolio-site',sessions:21,cost_usd:38.44,input_tokens:3100000,output_tokens:790000,cache_read:440000,cache_create:290000,active_min:281},
+    {month:'2025-05',project:'api-backend',sessions:21,cost_usd:31.89,input_tokens:2500000,output_tokens:680000,cache_read:360000,cache_create:240000,active_min:198},
+    {month:'2025-06',project:'token-report',sessions:16,cost_usd:22.10,input_tokens:1900000,output_tokens:510000,cache_read:290000,cache_create:190000,active_min:168},
+    {month:'2025-06',project:'portfolio-site',sessions:24,cost_usd:52.18,input_tokens:4200000,output_tokens:1080000,cache_read:600000,cache_create:380000,active_min:341},
+    {month:'2025-06',project:'api-backend',sessions:23,cost_usd:38.12,input_tokens:3000000,output_tokens:650000,cache_read:420000,cache_create:280000,active_min:233},
+  ];
+  state.sessions = Array.from({length: 30}, (_, i) => ({
+    session_id: `demo_session_${i+1}`,
+    project: ['token-report','portfolio-site','api-backend','00_workspace-ops'][i % 4],
+    month: ['2025-05','2025-06'][i % 2],
+    date: `2025-0${5 + (i%2)}-${String((i%28)+1).padStart(2,'0')}`,
+    model: ['claude-sonnet-4-6','claude-haiku-4-5','claude-opus-4-7'][i % 3],
+    input_tokens: Math.round(50000 + Math.random() * 200000),
+    output_tokens: Math.round(10000 + Math.random() * 80000),
+    cache_read: Math.round(5000 + Math.random() * 50000),
+    cache_create: Math.round(2000 + Math.random() * 30000),
+    cost_usd: parseFloat((1.2 + Math.random() * 8).toFixed(4)),
+    active_min: parseFloat((15 + Math.random() * 60).toFixed(1)),
+    wall_min: parseFloat((20 + Math.random() * 90).toFixed(1)),
+    messages: Math.round(10 + Math.random() * 80),
+  }));
+  addUploadedBadge('demo-data');
+  refreshAll();
+}
+
+// ── View switching ──
+function showView(name) {
+  state.currentView = name;
+  document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.textContent.trim().toLowerCase().includes(name.toLowerCase().slice(0,4))) n.classList.add('active');
+  });
+}
+
+// ── Refresh all views ──
+function refreshAll() {
+  renderOverview();
+  renderMonthly();
+  renderProjects();
+  renderSessions();
+}
+
+function recalcRatios() {
+  state.subUSD = parseFloat(document.getElementById('subCost').value) || 100;
+  renderMonthly();
+  renderOverview();
+}
+
+// ── Format helpers ──
+function fmt$(v) { return '$' + Number(v).toFixed(2); }
+function fmtK(v) { return v >= 1e6 ? (v/1e6).toFixed(1)+'M' : v >= 1000 ? (v/1000).toFixed(0)+'K' : String(v); }
+function fmtMin(v) { return v >= 60 ? (v/60).toFixed(1)+'h' : v.toFixed(0)+'m'; }
+
+function ratioClass(r) {
+  if (r >= 1.5) return 'ratio-good';
+  if (r >= 1.0) return 'ratio-ok';
+  return 'ratio-bad';
+}
+
+// ── Overview ──
+function renderOverview() {
+  const hasData = state.totals.length > 0 || state.sessions.length > 0;
+  document.getElementById('emptyState').style.display = hasData ? 'none' : 'block';
+  document.getElementById('loadedContent').style.display = hasData ? 'block' : 'none';
+  if (!hasData) return;
+
+  const allData = state.totals.length > 0 ? state.totals : [];
+  const totalCost = allData.reduce((s, r) => s + (r.cost_usd || 0), 0);
+  const totalInput = allData.reduce((s, r) => s + (r.input_tokens || 0), 0);
+  const totalOutput = allData.reduce((s, r) => s + (r.output_tokens || 0), 0);
+  const totalSessions = allData.reduce((s, r) => s + (r.sessions || 0), 0) || state.sessions.length;
+  const avgRatio = allData.length > 0 ? (allData.reduce((s, r) => s + (state.subUSD / (r.cost_usd || 1)), 0) / allData.length) : 0;
+
+  // latest month change
+  let change = '';
+  if (allData.length >= 2) {
+    const prev = allData[allData.length - 2].cost_usd;
+    const curr = allData[allData.length - 1].cost_usd;
+    const pct = ((curr - prev) / prev * 100).toFixed(1);
+    const cls = curr > prev ? 'down' : 'up';
+    change = `<span class="${cls}">${curr > prev ? '↑' : '↓'} ${Math.abs(pct)}% vs last month</span>`;
+  }
+
+  document.getElementById('metricGrid').innerHTML = `
+    <div class="metric-card">
+      <div class="metric-label">Total Cost</div>
+      <div class="metric-value" style="color:var(--accent)">${fmt$(totalCost)}</div>
+      <div class="metric-change">${change}</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Sessions</div>
+      <div class="metric-value">${totalSessions.toLocaleString()}</div>
+      <div class="metric-change">${allData.length} months tracked</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Input Tokens</div>
+      <div class="metric-value" style="color:var(--blue)">${fmtK(totalInput)}</div>
+      <div class="metric-change">+ ${fmtK(totalOutput)} output</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Avg Value Ratio</div>
+      <div class="metric-value" style="color:${avgRatio >= 1.5 ? 'var(--green)' : avgRatio >= 1 ? 'var(--accent)' : 'var(--red)'}">${avgRatio.toFixed(2)}×</div>
+      <div class="metric-change">sub $${state.subUSD}/mo ÷ actual cost</div>
+    </div>
+  `;
+
+  renderCostChart(allData);
+  renderProjectPie();
+  renderTokenDoughnut(allData);
+}
+
+function renderCostChart(totals) {
+  const ctx = document.getElementById('costChart').getContext('2d');
+  if (state.charts.cost) state.charts.cost.destroy();
+  const labels = totals.map(r => r.month);
+  const costs = totals.map(r => Number(r.cost_usd).toFixed(2));
+  const subLine = totals.map(() => state.subUSD);
+
+  state.charts.cost = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Actual cost',
+          data: costs,
+          backgroundColor: 'rgba(200,75,10,0.7)',
+          borderColor: '#C84B0A',
+          borderWidth: 1,
+          borderRadius: 5,
+        },
+        {
+          label: 'Subscription',
+          data: subLine,
+          type: 'line',
+          borderColor: 'rgba(42,31,20,0.2)',
+          borderDash: [4, 3],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8B7355', font: { family: "'DM Mono'", size: 11 } }, grid: { color: 'rgba(42,31,20,0.06)' }, border: { display: false } },
+        y: { ticks: { color: '#8B7355', font: { family: "'DM Mono'", size: 11 }, callback: v => '$' + v }, grid: { color: 'rgba(42,31,20,0.06)' }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function renderProjectPie() {
+  const ctx = document.getElementById('projectChart').getContext('2d');
+  if (state.charts.project) state.charts.project.destroy();
+  if (!state.monthly.length) return;
+
+  const byProject = {};
+  state.monthly.forEach(r => {
+    byProject[r.project] = (byProject[r.project] || 0) + Number(r.cost_usd);
+  });
+  const sorted = Object.entries(byProject).sort((a, b) => b[1] - a[1]);
+  const colors = ['#C84B0A','#5C7A8E','#8B6F8E','#6B8E4E','#e05c5c','#e8a47a','#3b7dc8','#6bcf9d'];
+
+  state.charts.project = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: sorted.map(([k]) => k),
+      datasets: [{
+        data: sorted.map(([,v]) => v.toFixed(4)),
+        backgroundColor: sorted.map((_, i) => colors[i % colors.length]),
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: { color: '#5C4A3C', font: { size: 11, family: "'DM Mono'" }, boxWidth: 10, padding: 10 }
+        }
+      }
+    }
+  });
+}
+
+function renderTokenDoughnut(totals) {
+  const ctx = document.getElementById('tokenChart').getContext('2d');
+  if (state.charts.token) state.charts.token.destroy();
+  const input = totals.reduce((s, r) => s + (r.input_tokens || 0), 0);
+  const output = totals.reduce((s, r) => s + (r.output_tokens || 0), 0);
+  // grab cache from monthly if available
+  const cacheRead = state.monthly.reduce((s, r) => s + (r.cache_read || 0), 0);
+  const cacheCreate = state.monthly.reduce((s, r) => s + (r.cache_create || 0), 0);
+
+  state.charts.token = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Input', 'Output', 'Cache Read', 'Cache Create'],
+      datasets: [{
+        data: [input, output, cacheRead, cacheCreate].map(v => v || 0),
+        backgroundColor: ['#5C7A8E','#C84B0A','#8B6F8E','#6B8E4E'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: {
+          display: true,
+          position: 'right',
+          labels: { color: '#5C4A3C', font: { size: 11, family: "'DM Mono'" }, boxWidth: 10, padding: 10 }
+        }
+      }
+    }
+  });
+}
+
+// ── Monthly totals table ──
+function renderMonthly() {
+  const wrap = document.getElementById('monthlyTableWrap');
+  if (!state.totals.length) return;
+  const subUSD = state.subUSD;
+
+  const rows = state.totals.map(r => {
+    const ratio = subUSD / (r.cost_usd || 1);
+    const rc = ratioClass(ratio);
+    return `<tr>
+      <td class="td-mono">${r.month}</td>
+      <td class="td-mono" style="color:var(--accent)">${fmt$(r.cost_usd)}</td>
+      <td class="td-mono">${(r.sessions||0).toLocaleString()}</td>
+      <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
+      <td class="td-mono" style="color:var(--text2)">${fmtK(r.output_tokens||0)}</td>
+      <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+      <td><span class="ratio-badge ${rc}">${ratio.toFixed(2)}×</span></td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `<table>
+    <thead><tr>
+      <th>Month</th><th>Cost USD</th><th>Sessions</th>
+      <th>Input</th><th>Output</th><th>Active Time</th><th>Value Ratio</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── Projects table ──
+function renderProjects() {
+  if (!state.monthly.length) return;
+
+  const months = [...new Set(state.monthly.map(r => r.month))].sort();
+  const filterDiv = document.getElementById('monthFilter');
+  filterDiv.innerHTML = `<button class="filter-chip ${state.activeMonth === 'all' ? 'active' : ''}" onclick="setMonthFilter('all')">All</button>` +
+    months.map(m => `<button class="filter-chip ${state.activeMonth === m ? 'active' : ''}" onclick="setMonthFilter('${m}')">${m}</button>`).join('');
+
+  const data = state.activeMonth === 'all' ? state.monthly : state.monthly.filter(r => r.month === state.activeMonth);
+  const maxCost = Math.max(...data.map(r => r.cost_usd));
+
+  const rows = data.map(r => {
+    const pct = maxCost > 0 ? (r.cost_usd / maxCost * 100).toFixed(0) : 0;
+    return `<tr>
+      <td class="td-mono">${r.month}</td>
+      <td class="td-project">${r.project}</td>
+      <td>
+        <div class="bar-inline">
+          <span class="td-mono" style="color:var(--accent);min-width:52px">${fmt$(r.cost_usd)}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        </div>
+      </td>
+      <td class="td-mono">${r.sessions||0}</td>
+      <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
+      <td class="td-mono" style="color:var(--text2)">${fmtK(r.output_tokens||0)}</td>
+      <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('projectsTableWrap').innerHTML = `<table>
+    <thead><tr>
+      <th>Month</th><th>Project</th><th>Cost</th>
+      <th>Sessions</th><th>Input</th><th>Output</th><th>Active</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function setMonthFilter(m) {
+  state.activeMonth = m;
+  renderProjects();
+}
+
+// ── Sessions table ──
+function renderSessions() {
+  if (!state.sessions.length) return;
+
+  const months = [...new Set(state.sessions.map(r => r.month))].sort();
+  const filterDiv = document.getElementById('sessionFilter');
+  filterDiv.innerHTML = `<button class="filter-chip ${state.activeMonth === 'all' ? 'active' : ''}" onclick="setSessionFilter('all')">All</button>` +
+    months.map(m => `<button class="filter-chip ${state.activeMonth === m ? 'active' : ''}" onclick="setSessionFilter('${m}')">${m}</button>`).join('');
+
+  let data = state.activeMonth === 'all' ? state.sessions : state.sessions.filter(r => r.month === state.activeMonth);
+  const display = data.slice(0, 200);
+  document.getElementById('sessionCount').textContent = `showing ${display.length} of ${data.length}`;
+
+  const modelTag = m => {
+    const s = (m || '').includes('opus') ? 'opus' : (m || '').includes('haiku') ? 'haiku' : 'sonnet';
+    const c = s === 'opus' ? 'var(--purple)' : s === 'haiku' ? 'var(--green)' : 'var(--blue)';
+    return `<span style="font-size:11px;font-family:var(--mono);color:${c}">${s}</span>`;
+  };
+
+  const rows = display.map(r => `<tr>
+    <td class="td-mono" style="font-size:11px;color:var(--text3)">${r.date || r.month}</td>
+    <td class="td-project" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.project}</td>
+    <td>${modelTag(r.model)}</td>
+    <td class="td-mono" style="color:var(--accent)">${fmt$(r.cost_usd)}</td>
+    <td class="td-mono" style="color:var(--blue)">${fmtK(r.input_tokens||0)}</td>
+    <td class="td-mono">${fmtK(r.output_tokens||0)}</td>
+    <td class="td-mono">${fmtMin(r.active_min||0)}</td>
+    <td class="td-mono">${r.messages||'-'}</td>
+  </tr>`).join('');
+
+  document.getElementById('sessionsTableWrap').innerHTML = `<table>
+    <thead><tr>
+      <th>Date</th><th>Project</th><th>Model</th><th>Cost</th>
+      <th>Input</th><th>Output</th><th>Active</th><th>Msgs</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+function setSessionFilter(m) {
+  state.activeMonth = m;
+  renderSessions();
+}
+</script>
+</body>
+</html>
